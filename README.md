@@ -31,8 +31,6 @@ This project demonstrates a **full AWS infrastructure deployment** using **Cloud
 
 > Refreshing the ALB URL shows traffic being distributed across multiple EC2 instances.
 
-[Watch ALB Demo Video](alb.mp4)
-
 ## How to Deploy
 
 1. Ensure you have an **AWS Key Pair** (e.g., `miniweb-key`) and AWS CLI configured.
