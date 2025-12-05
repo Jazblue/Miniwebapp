@@ -1,115 +1,43 @@
-# Miniwebapp
+# Mini Web App – CloudFormation Demo
 
-# Mini Web App on AWS
-
-A highly available web application deployed on AWS using **CloudFormation**, **Application Load Balancer (ALB)**, **Auto Scaling Group (ASG)**, and **EC2 instances**. This project demonstrates a production-like web infrastructure with redundancy across two Availability Zones.
-
----
-
-## Architecture
-
-- **VPC & Networking**
-  - Custom VPC with **two public subnets** in different Availability Zones.
-  - Internet Gateway with proper route tables for internet access.
-
-- **Security**
-  - **ALB Security Group:** allows HTTP (80) from anywhere.
-  - **EC2 Security Group:** allows HTTP only from the ALB SG.
-
-- **Web Layer**
-  - **Application Load Balancer (ALB):** internet-facing, distributes traffic to EC2 instances.
-  - **Auto Scaling Group (ASG):** deploys EC2 instances across 2 AZs, ensures high availability.
-  - **EC2 Instances:** Amazon Linux 2, Apache installed via **UserData**, serves a simple web page.
-
-- **Health & Monitoring**
-  - ALB target group health checks ensure EC2 instances are serving traffic.
-  - Instances automatically replaced if unhealthy.
+This project demonstrates a **full AWS infrastructure deployment** using **CloudFormation**, including **VPC, ALB, Auto Scaling, and EC2 instances**. The demo also features a Manchester United-themed web page running on multiple EC2 instances across 2 Availability Zones.
 
 ---
 
 ## Features
 
-- Fully deployed via **CloudFormation** (infrastructure as code).  
-- Load balancing across multiple AZs for high availability.  
-- Auto Scaling Group ensures minimum and maximum instance capacity.  
-- Web page served by EC2 instances via ALB.
+- **Fully automated infrastructure** with CloudFormation
+- **VPC + 2 Public Subnets** for multi-AZ deployment
+- **Application Load Balancer (ALB)** with a Target Group
+- **Auto Scaling Group (ASG)** with 2–3 EC2 instances
+- **UserData scripts** printing hostname and Availability Zone
+- **Manchester United themed demo** showing dynamic content per instance
 
 ---
 
-## Deployment Instructions
+## Screenshots
 
-Running the CloudFormation stack on Linux
+### 1️⃣ CloudFormation Stack Created
+![CloudFormation Stack Created](cloudformation1.png)
 
-Install and configure AWS CLI (if not already):
+### 2️⃣ CloudFormation Resources
+![CloudFormation Resources](cloudformation2.png)
 
-# Install AWS CLI v2 (example for Amazon Linux 2 / Ubuntu)
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
+### 3️⃣ ALB Example – First Instance
+![ALB Screenshot 1](alb1.png)
 
-# Configure AWS CLI
-aws configure
+### 4️⃣ ALB Example – Second Instance
+![ALB Screenshot 2](alb2.png)
 
+> Refreshing the ALB URL shows traffic being distributed across multiple EC2 instances.
 
-Enter AWS Access Key, Secret Key, default region (e.g., eu-west-2), and output format (json).
+---
 
-Clone the repository:
+## How to Deploy
 
+1. Ensure you have an **AWS Key Pair** (e.g., `miniweb-key`) and AWS CLI configured.
+2. Clone this repo:
+
+```bash
 git clone https://github.com/Jazblue/Miniwebapp.git
 cd Miniwebapp
-
-
-Create the CloudFormation stack:
-
-aws cloudformation create-stack \
-    --stack-name mini-web \
-    --template-body file://mini-web.yaml \
-    --capabilities CAPABILITY_NAMED_IAM
-
-
-Check stack status:
-
-aws cloudformation describe-stacks \
-    --stack-name mini-web \
-    --query "Stacks[0].StackStatus"
-
-
-Wait until it shows CREATE_COMPLETE.
-
-Get the ALB DNS:
-
-aws cloudformation describe-stacks \
-    --stack-name mini-web \
-    --query "Stacks[0].Outputs"
-
-
-Access the web page:
-
-# Use curl in Linux
-curl http://<ALB_DNS_NAME>
-
-
-You should see: Hello, Manchester United
-
-
-Notes
-
-No SSH KeyPair is required; EC2 instances are fully configured via UserData.
-
-AMI is dynamically retrieved via SSM, ensuring it works in any AWS region.
-
-The Auto Scaling Group currently has min=1 and max=3 instances. Scaling policies can be added for CPU-based auto-scaling.
-
-Future Improvements
-
-Add HTTPS support using AWS ACM.
-
-Implement CloudWatch-based auto-scaling policies for real load-based scaling.
-
-Deploy a dynamic web application or connect a backend database.
-
-Author
-
-Jase – Cloud enthusiast and Manchester United fan.
-
-
