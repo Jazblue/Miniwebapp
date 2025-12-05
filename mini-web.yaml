@@ -1,9 +1,22 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Mini Web App with ALB + Auto Scaling (No KeyPair, SSM-based AMI)
+AWSTemplateFormatVersion: 2010-09-09
+Description: Mini Web App with AutoScaling + ALB (Manchester United Demo)
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+  LatestAmiId:
+    Description: Get latest Amazon Linux 2 AMI ID (x86_64)
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
 
 Resources:
-  # VPC
-  VPC:
+
+  ##########################
+  # VPC + Networking
+  ##########################
+
+  MyVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/16
@@ -13,39 +26,21 @@ Resources:
         - Key: Name
           Value: MiniWebVPC
 
-  # Public Subnets
-  PublicSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
-      MapPublicIpOnLaunch: true
-
-  PublicSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone: !Select [1, !GetAZs '']
-      MapPublicIpOnLaunch: true
-
-  # Internet Gateway & Route Table
   InternetGateway:
     Type: AWS::EC2::InternetGateway
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref MyVPC
       InternetGatewayId: !Ref InternetGateway
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref MyVPC
 
-  DefaultPublicRoute:
+  PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
     Properties:
@@ -53,115 +48,128 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  Subnet1RouteTableAssociation:
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: MiniWebSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: MiniWebSubnet2
+
+  SubnetRouteAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnet1
       RouteTableId: !Ref PublicRouteTable
 
-  Subnet2RouteTableAssociation:
+  SubnetRouteAssoc2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnet2
       RouteTableId: !Ref PublicRouteTable
 
-  # Security Groups
-  ALBSecurityGroup:
+  ##########################
+  # Security Group
+  ##########################
+
+  WebAppSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP to ALB
-      VpcId: !Ref VPC
+      GroupDescription: Allow HTTP Access
+      VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
 
-  EC2SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow HTTP from ALB
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
+  ##########################
+  # Launch Template + ASG
+  ##########################
 
-  # Launch Template (No KeyPair, dynamic AMI)
   WebServerLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: MiniWebLaunchTemplate
+      LaunchTemplateName: mini-web-lt
       LaunchTemplateData:
         InstanceType: t3.micro
+        ImageId: !Ref LatestAmiId
+        KeyName: !Ref KeyName
         SecurityGroupIds:
-          - !Ref EC2SecurityGroup
-        ImageId: !Sub "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
+          - !Ref WebAppSG
         UserData:
-          Fn::Base64: |
+          Fn::Base64: !Sub |
             #!/bin/bash
             yum update -y
             yum install -y httpd
             systemctl enable httpd
             systemctl start httpd
-            echo "<h1>Hello, Manchester United!</h1>" > /var/www/html/index.html
+            HOSTNAME=$(hostname)
+            AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+            echo "<h1>Hello, Manchester United!<br>Hostname: $HOSTNAME<br>AZ: $AZ</h1>" > /var/www/html/index.html
 
-  # Application Load Balancer
-  WebALB:
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref MyVPC
+      TargetType: instance
+      HealthCheckPath: /
+
+  WebAppALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: MiniWebALB
+      Type: application
       Subnets:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
       SecurityGroups:
-        - !Ref ALBSecurityGroup
-      Scheme: internet-facing
-      Type: application
+        - !Ref WebAppSG
 
-  WebTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: MiniWebTG
-      Port: 80
-      Protocol: HTTP
-      VpcId: !Ref VPC
-      TargetType: instance
-      HealthCheckPath: /
-      HealthCheckIntervalSeconds: 30
-      HealthCheckTimeoutSeconds: 5
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 2
-
-  WebALBListener:
+  ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn: !Ref WebALB
+      LoadBalancerArn: !Ref WebAppALB
       Port: 80
       Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref WebTargetGroup
+          TargetGroupArn: !Ref WebAppTargetGroup
 
-  # Auto Scaling Group
-  WebASG:
+  WebAppASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebServerLaunchTemplate
+        Version: !GetAtt WebServerLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 2
       VPCZoneIdentifier:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
-      LaunchTemplate:
-        LaunchTemplateId: !Ref WebServerLaunchTemplate
-        Version: 1
-      MinSize: 1
-      MaxSize: 3
       TargetGroupARNs:
-        - !Ref WebTargetGroup
+        - !Ref WebAppTargetGroup
       HealthCheckType: ELB
       HealthCheckGracePeriod: 60
 
 Outputs:
   ALBDNSName:
-    Description: "ALB DNS Name"
-    Value: !GetAtt WebALB.DNSName
+    Description: DNS Name of the Application Load Balancer
+    Value: !GetAtt WebAppALB.DNSName
