@@ -18,16 +18,16 @@ This project demonstrates a **full AWS infrastructure deployment** using **Cloud
 ## Screenshots
 
 ### 1️⃣ CloudFormation Stack Created
-![CloudFormation Stack Created](cloudformation1.png)
+![CloudFormation Stack Created](cloudformation1.PNG)
 
 ### 2️⃣ CloudFormation Resources
-![CloudFormation Resources](cloudformation2.png)
+![CloudFormation Resources](cloudformation2.PNG)
 
 ### 3️⃣ ALB Example – First Instance
-![ALB Screenshot 1](alb1.png)
+![ALB Screenshot 1](alb1.PNG)
 
 ### 4️⃣ ALB Example – Second Instance
-![ALB Screenshot 2](alb2.png)
+![ALB Screenshot 2](alb2.PNG)
 
 > Refreshing the ALB URL shows traffic being distributed across multiple EC2 instances.
 
