@@ -38,11 +38,59 @@ A highly available web application deployed on AWS using **CloudFormation**, **A
 
 ## Deployment Instructions
 
-1. Clone this repository:
+Running the CloudFormation stack on Linux
 
-```bash
-git clone <repository-url>
-cd <repository-folder>
+Install and configure AWS CLI (if not already):
+
+# Install AWS CLI v2 (example for Amazon Linux 2 / Ubuntu)
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Configure AWS CLI
+aws configure
+
+
+Enter AWS Access Key, Secret Key, default region (e.g., eu-west-2), and output format (json).
+
+Clone the repository:
+
+git clone https://github.com/Jazblue/Miniwebapp.git
+cd Miniwebapp
+
+
+Create the CloudFormation stack:
+
+aws cloudformation create-stack \
+    --stack-name mini-web \
+    --template-body file://mini-web.yaml \
+    --capabilities CAPABILITY_NAMED_IAM
+
+
+Check stack status:
+
+aws cloudformation describe-stacks \
+    --stack-name mini-web \
+    --query "Stacks[0].StackStatus"
+
+
+Wait until it shows CREATE_COMPLETE.
+
+Get the ALB DNS:
+
+aws cloudformation describe-stacks \
+    --stack-name mini-web \
+    --query "Stacks[0].Outputs"
+
+
+Access the web page:
+
+# Use curl in Linux
+curl http://<ALB_DNS_NAME>
+
+
+You should see: Hello, Manchester United
+
 
 Notes
 
